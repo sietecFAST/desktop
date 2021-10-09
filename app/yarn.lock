@@ -1005,9 +1005,9 @@ tweetnacl@^0.14.3, tweetnacl@~0.14.0:
   version "0.14.5"
   resolved "https://registry.yarnpkg.com/tweetnacl/-/tweetnacl-0.14.5.tgz#5ae68177f192d4456269d108afa93ff8743f4f64"
 
-ua-parser-js@^0.7.12, ua-parser-js@^0.7.9:
-  version "0.7.14"
-  resolved "https://registry.yarnpkg.com/ua-parser-js/-/ua-parser-js-0.7.14.tgz#110d53fa4c3f326c121292bbeac904d2e03387ca"
+ua-parser-js@^0.7.24, ua-parser-js@^0.7.9:
+  version "0.7.24"
+  resolved "https://registry.yarnpkg.com/ua-parser-js/-/ua-parser-js-0.7.24.tgz#8d3ecea46ed4f1f1d63ec25f17d8568105dc027c"
 
 untildify@^3.0.2:
   version "3.0.2"
