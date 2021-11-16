@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "awesome-typescript-loader": "^3.4.0",
-    "aws-sdk": "^2.23.0",
+    "aws-sdk": "^2.814.0",
     "babel-core": "^6.24.1",
     "babel-minify": "^0.2.0",
     "babel-webpack-plugin": "^0.1.1",
