@@ -23,7 +23,7 @@
     "classnames": "^2.2.5",
     "codemirror": "^5.31.0",
     "deep-equal": "^1.0.1",
-    "dexie": "^2.0.0",
+    "dexie": "^3.2.2",
     "dugite": "1.53.0",
     "electron-window-state": "^4.0.2",
     "event-kit": "^2.0.0",

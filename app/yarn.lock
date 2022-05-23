@@ -252,9 +252,9 @@ devtron@^1.4.0:
     highlight.js "^9.3.0"
     humanize-plus "^1.8.1"
 
-dexie@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/dexie/-/dexie-2.0.0.tgz#d3ad7b7aa29e8de82ea4a8e09a4ccbfa80213f0d"
+dexie@^3.2.2:
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/dexie/-/dexie-3.2.2.tgz#fa6f2a3c0d6ed0766f8d97a03720056f88fe0e01"
 
 dom-classlist@^1.0.1:
   version "1.0.1"
