@@ -33,8 +33,8 @@ choice is clear.
   that issues that don't meet the bar can be closed
 * Reduce the amount of time and back-and-forth needed to take an issue from
   being first-opened to `triaged` or closed
-* Accept input from the community that helps us deliver meaningful results back
-  to the Atom community
+* Accept input from the community that helps us deliver meaningful results to
+  GitHub Desktop and its users
 
 ## The Issues List Is Our Backlog
 
@@ -81,16 +81,18 @@ issues from time to time that isn't and won't be covered here.
 
 1. Person files a new issue
 1. Maintainer checks to ensure they adequately filled out the template. If not,
-   close with the [request to fill out the template](canned-messages/needs-template.md).
+   close with a request to fill out the template.
 1. Label the issue as a `bug` if the issue is a regression or behaviour that
    needs to be fixed.
+1. Label the issue with `support` if the issue is specific to one person's
+   configuration and isn't more broadly relevant to other users.
 1. If the issue has already been fixed, add a comment linking to the original
    issue and close the issue.
 1. If anything is unclear but the template is adequately filled out, post what
-   questions you have and label with `more-information-needed`
+   questions you have and label with `more-information-needed`.
 1. Maintainer attempts to reproduce the problem
     1. If the problem is not reproducible, label with `needs-reproduction` and
-       ask the author of the issue for [clarification on the repro steps](canned-messages/repro-steps.md)
+       ask the author of the issue for clarification on the repro steps.
 1. Label the issue as an `enhancement` if the issue mentions new behaviour
    or functionality that the app should have.
 
@@ -98,10 +100,16 @@ issues from time to time that isn't and won't be covered here.
 
 ## More Information Needed
 
-Periodically we should be doing a sweep of issues that are open and labeled
-`more-information-needed`. If the original poster has not responded within
-two weeks after the last question by an official maintainer, close the issue
-with [the no response message](canned-messages/no-response.md).
+If a reviewer cannot understand or reproduce the issue with the information provided, they should add a comment indicating what is not clear and add the label `more-information-needed`.
+
+Although we use a bot, the first responder should also do a manual sweep of issues that are open and labeled `more-information-needed` at least once a week.
+* If a `more-information-needed` issue is stale for more than 14 days after the last comment by a reviewer, the issue will be automatically closed by the no-response bot.
+* If the original poster did not fill out the issue template and has not responded to our request within 7 days, close the issue with the following message `I'm closing the issue due to inactivity but I'm happy to re-open if you can provide more details.`
+
+## Support
+
+If an issue reported feels specific to one user's setup and a solution will likely not be relevant to other users of Desktop, the reviewer should add the label `support`
+and @-mention @desktop/support so they're able to work with the user to figure out what's causing the problem.
 
 ## Needs Reproduction
 
@@ -144,22 +152,6 @@ work should proceed:
  - quality - ensure the change does not adversely affect other features
 
 e.g. GitHub Desktop should support worktrees as a first class feature.
-
-### Future Proposals
-
-The Desktop team has a [roadmap](roadmap.md) defined for the next few releases,
-so that you can see what our future plans look like. Some enhancements suggested
-by the community will be for things that are interesting but are also well
-beyond the current plans of the team.
-
-We will apply the `future-proposal` label to these issues, so that they can be
-searched for when it comes time to plan for the future. However, to keep
-our issue tracker focused on tasks currently on the roadmap we will close these
-future proposals to avoid information overload.
-
-You can view [the list](https://github.com/desktop/desktop/issues?q=is%3Aissue+label%3Afuture-proposal)
-of these `future-proposal` tasks, and continue to add your thoughts and feedback
-there.
 
 ## Out-of-scope
 

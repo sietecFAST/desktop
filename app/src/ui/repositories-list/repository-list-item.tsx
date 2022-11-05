@@ -1,15 +1,24 @@
 import * as React from 'react'
+
 import { Repository } from '../../models/repository'
 import { Octicon, iconForRepository } from '../octicons'
-import { showContextualMenu, IMenuItem } from '../main-process-proxy'
+import * as OcticonSymbol from '../octicons/octicons.generated'
+import { showContextualMenu } from '../../lib/menu-item'
 import { Repositoryish } from './group-repositories'
-
-const defaultEditorLabel = __DARWIN__
-  ? 'Open in External Editor'
-  : 'Open in external editor'
+import { HighlightText } from '../lib/highlight-text'
+import { IMatches } from '../../lib/fuzzy-find'
+import { IAheadBehind } from '../../models/branch'
+import classNames from 'classnames'
+import { createObservableRef } from '../lib/observable-ref'
+import { Tooltip } from '../lib/tooltip'
+import { TooltippedContent } from '../lib/tooltipped-content'
+import { generateRepositoryListContextMenu } from './repository-list-item-context-menu'
 
 interface IRepositoryListItemProps {
   readonly repository: Repositoryish
+
+  /** Whether the user has enabled the setting to confirm removing a repository from the app */
+  readonly askForConfirmationOnRemoveRepository: boolean
 
   /** Called when the repository should be removed. */
   readonly onRemoveRepository: (repository: Repositoryish) => void
@@ -17,11 +26,20 @@ interface IRepositoryListItemProps {
   /** Called when the repository should be shown in Finder/Explorer/File Manager. */
   readonly onShowRepository: (repository: Repositoryish) => void
 
+  /** Called when the repository should be opened on GitHub in the default web browser. */
+  readonly onViewOnGitHub: (repository: Repositoryish) => void
+
   /** Called when the repository should be shown in the shell. */
   readonly onOpenInShell: (repository: Repositoryish) => void
 
   /** Called when the repository should be opened in an external editor */
   readonly onOpenInExternalEditor: (repository: Repositoryish) => void
+
+  /** Called when the repository alias should be changed */
+  readonly onChangeRepositoryAlias: (repository: Repository) => void
+
+  /** Called when the repository alias should be removed */
+  readonly onRemoveRepositoryAlias: (repository: Repository) => void
 
   /** The current external editor selected by the user */
   readonly externalEditorLabel?: string
@@ -32,8 +50,14 @@ interface IRepositoryListItemProps {
   /** The label for the user's preferred shell. */
   readonly shellLabel: string
 
-  /** The text entered by the user to filter their repository list */
-  readonly filterText: string
+  /** The characters in the repository name to highlight */
+  readonly matches: IMatches
+
+  /** Number of commits this local repo branch is behind or ahead of its remote branch */
+  readonly aheadBehind: IAheadBehind | null
+
+  /** Number of uncommitted changes */
+  readonly changedFilesCount: number
 }
 
 /** A repository item. */
@@ -41,51 +65,69 @@ export class RepositoryListItem extends React.Component<
   IRepositoryListItemProps,
   {}
 > {
-  private renderHighlightedName(name: string) {
-    const filterText = this.props.filterText
-    const matchStart = name.indexOf(filterText)
-    const matchLength = filterText.length
-
-    if (matchStart === -1) {
-      return <span>{name}</span>
-    }
-
-    return (
-      <span>
-        {name.substr(0, matchStart)}
-        <mark>{name.substr(matchStart, matchLength)}</mark>
-        {name.substr(matchStart + matchLength)}
-      </span>
-    )
-  }
+  private readonly listItemRef = createObservableRef<HTMLDivElement>()
 
   public render() {
     const repository = this.props.repository
-    const path = repository.path
     const gitHubRepo =
       repository instanceof Repository ? repository.gitHubRepository : null
-    const tooltip = gitHubRepo
-      ? gitHubRepo.fullName + '\n' + gitHubRepo.htmlURL + '\n' + path
-      : path
+    const hasChanges = this.props.changedFilesCount > 0
+
+    const alias: string | null =
+      repository instanceof Repository ? repository.alias : null
 
     let prefix: string | null = null
     if (this.props.needsDisambiguation && gitHubRepo) {
       prefix = `${gitHubRepo.owner.login}/`
     }
 
+    const classNameList = classNames('name', {
+      alias: alias !== null,
+    })
+
     return (
       <div
         onContextMenu={this.onContextMenu}
         className="repository-list-item"
-        title={tooltip}
+        ref={this.listItemRef}
       >
-        <Octicon symbol={iconForRepository(repository)} />
+        <Tooltip target={this.listItemRef}>{this.renderTooltip()}</Tooltip>
 
-        <div className="name">
+        <Octicon
+          className="icon-for-repository"
+          symbol={iconForRepository(repository)}
+        />
+
+        <div className={classNames(classNameList)}>
           {prefix ? <span className="prefix">{prefix}</span> : null}
-          {this.renderHighlightedName(repository.name)}
+          <HighlightText
+            text={alias ?? repository.name}
+            highlight={this.props.matches.title}
+          />
         </div>
+
+        {repository instanceof Repository &&
+          renderRepoIndicators({
+            aheadBehind: this.props.aheadBehind,
+            hasChanges: hasChanges,
+          })}
       </div>
+    )
+  }
+  private renderTooltip() {
+    const repo = this.props.repository
+    const gitHubRepo = repo instanceof Repository ? repo.gitHubRepository : null
+    const alias = repo instanceof Repository ? repo.alias : null
+    const realName = gitHubRepo ? gitHubRepo.fullName : repo.name
+
+    return (
+      <>
+        <div>
+          <strong>{realName}</strong>
+          {alias && <> ({alias})</>}
+        </div>
+        <div>{repo.path}</div>
+      </>
     )
   }
 
@@ -96,7 +138,7 @@ export class RepositoryListItem extends React.Component<
     ) {
       return (
         nextProps.repository.id !== this.props.repository.id ||
-        nextProps.filterText !== this.props.filterText
+        nextProps.matches !== this.props.matches
       )
     } else {
       return true
@@ -106,54 +148,68 @@ export class RepositoryListItem extends React.Component<
   private onContextMenu = (event: React.MouseEvent<any>) => {
     event.preventDefault()
 
-    const repository = this.props.repository
-    const missing = repository instanceof Repository && repository.missing
-    const openInExternalEditor = this.props.externalEditorLabel
-      ? `Open in ${this.props.externalEditorLabel}`
-      : defaultEditorLabel
+    const items = generateRepositoryListContextMenu({
+      onRemoveRepository: this.props.onRemoveRepository,
+      onShowRepository: this.props.onShowRepository,
+      onOpenInShell: this.props.onOpenInShell,
+      onOpenInExternalEditor: this.props.onOpenInExternalEditor,
+      askForConfirmationOnRemoveRepository:
+        this.props.askForConfirmationOnRemoveRepository,
+      externalEditorLabel: this.props.externalEditorLabel,
+      onChangeRepositoryAlias: this.props.onChangeRepositoryAlias,
+      onRemoveRepositoryAlias: this.props.onRemoveRepositoryAlias,
+      onViewOnGitHub: this.props.onViewOnGitHub,
+      repository: this.props.repository,
+      shellLabel: this.props.shellLabel,
+    })
 
-    const showRepositoryLabel = __DARWIN__
-      ? 'Show in Finder'
-      : __WIN32__ ? 'Show in Explorer' : 'Show in your File Manager'
-
-    const items: ReadonlyArray<IMenuItem> = [
-      {
-        label: `Open in ${this.props.shellLabel}`,
-        action: this.openInShell,
-        enabled: !missing,
-      },
-      {
-        label: showRepositoryLabel,
-        action: this.showRepository,
-        enabled: !missing,
-      },
-      {
-        label: openInExternalEditor,
-        action: this.openInExternalEditor,
-        enabled: !missing,
-      },
-      { type: 'separator' },
-      {
-        label: 'Remove',
-        action: this.removeRepository,
-      },
-    ]
     showContextualMenu(items)
   }
-
-  private removeRepository = () => {
-    this.props.onRemoveRepository(this.props.repository)
-  }
-
-  private showRepository = () => {
-    this.props.onShowRepository(this.props.repository)
-  }
-
-  private openInShell = () => {
-    this.props.onOpenInShell(this.props.repository)
-  }
-
-  private openInExternalEditor = () => {
-    this.props.onOpenInExternalEditor(this.props.repository)
-  }
 }
+
+const renderRepoIndicators: React.FunctionComponent<{
+  aheadBehind: IAheadBehind | null
+  hasChanges: boolean
+}> = props => {
+  return (
+    <div className="repo-indicators">
+      {props.aheadBehind && renderAheadBehindIndicator(props.aheadBehind)}
+      {props.hasChanges && renderChangesIndicator()}
+    </div>
+  )
+}
+
+const renderAheadBehindIndicator = (aheadBehind: IAheadBehind) => {
+  const { ahead, behind } = aheadBehind
+  if (ahead === 0 && behind === 0) {
+    return null
+  }
+
+  const aheadBehindTooltip =
+    'The currently checked out branch is' +
+    (behind ? ` ${commitGrammar(behind)} behind ` : '') +
+    (behind && ahead ? 'and' : '') +
+    (ahead ? ` ${commitGrammar(ahead)} ahead of ` : '') +
+    'its tracked branch.'
+
+  return (
+    <div className="ahead-behind" title={aheadBehindTooltip}>
+      {ahead > 0 && <Octicon symbol={OcticonSymbol.arrowUp} />}
+      {behind > 0 && <Octicon symbol={OcticonSymbol.arrowDown} />}
+    </div>
+  )
+}
+
+const renderChangesIndicator = () => {
+  return (
+    <TooltippedContent
+      className="change-indicator-wrapper"
+      tooltip="There are uncommitted changes in this repository"
+    >
+      <Octicon symbol={OcticonSymbol.dotFill} />
+    </TooltippedContent>
+  )
+}
+
+const commitGrammar = (commitNum: number) =>
+  `${commitNum} commit${commitNum > 1 ? 's' : ''}` // english is hard

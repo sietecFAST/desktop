@@ -1,20 +1,31 @@
 import * as React from 'react'
-import * as classNames from 'classnames'
+import classNames from 'classnames'
 
-import { FileChange } from '../../models/status'
-import { Octicon, OcticonSymbol } from '../octicons'
+import { Octicon } from '../octicons'
+import * as OcticonSymbol from '../octicons/octicons.generated'
 import { RichText } from '../lib/rich-text'
-import { IGitHubUser } from '../../lib/databases'
 import { Repository } from '../../models/repository'
-import { Avatar } from '../lib/avatar'
 import { Commit } from '../../models/commit'
+import { getAvatarUsersForCommit, IAvatarUser } from '../../models/avatar'
+import { AvatarStack } from '../lib/avatar-stack'
+import { CommitAttribution } from '../lib/commit-attribution'
+import { Tokenizer, TokenResult } from '../../lib/text-token-parser'
+import { wrapRichTextCommitMessage } from '../../lib/wrap-rich-text-commit-message'
+import { DiffOptions } from '../diff/diff-options'
+import { IChangesetData } from '../../lib/git'
+import { TooltippedContent } from '../lib/tooltipped-content'
+import { AppFileStatusKind } from '../../models/status'
+import _ from 'lodash'
+import { LinkButton } from '../lib/link-button'
+import { UnreachableCommitsTab } from './unreachable-commits-dialog'
+import { TooltippedCommitSHA } from '../lib/tooltipped-commit-sha'
 
 interface ICommitSummaryProps {
   readonly repository: Repository
-  readonly commit: Commit
-  readonly files: ReadonlyArray<FileChange>
+  readonly selectedCommits: ReadonlyArray<Commit>
+  readonly shasInDiff: ReadonlyArray<string>
+  readonly changesetData: IChangesetData
   readonly emoji: Map<string, string>
-  readonly gitHubUser: IGitHubUser | null
 
   /**
    * Whether or not the commit body container should
@@ -26,6 +37,28 @@ interface ICommitSummaryProps {
   readonly isExpanded: boolean
 
   readonly onExpandChanged: (isExpanded: boolean) => void
+
+  readonly onDescriptionBottomChanged: (descriptionBottom: Number) => void
+
+  readonly hideDescriptionBorder: boolean
+
+  readonly hideWhitespaceInDiff: boolean
+
+  /** Whether we should display side by side diffs. */
+  readonly showSideBySideDiff: boolean
+  readonly onHideWhitespaceInDiffChanged: (checked: boolean) => Promise<void>
+
+  /** Called when the user changes the side by side diffs setting. */
+  readonly onShowSideBySideDiffChanged: (checked: boolean) => void
+
+  /** Called when the user opens the diff options popover */
+  readonly onDiffOptionsOpened: () => void
+
+  /** Called to highlight certain shas in the history */
+  readonly onHighlightShas: (shasToHighlight: ReadonlyArray<string>) => void
+
+  /** Called to show unreachable commits dialog */
+  readonly showUnreachableCommits: (tab: UnreachableCommitsTab) => void
 }
 
 interface ICommitSummaryState {
@@ -34,7 +67,12 @@ interface ICommitSummaryState {
    * Note that this may differ from the body property in the commit object
    * passed through props, see the createState method for more details.
    */
-  readonly summary: string
+  readonly summary: ReadonlyArray<TokenResult>
+
+  /**
+   * Whether the commit summary was empty.
+   */
+  readonly hasEmptySummary: boolean
 
   /**
    * The commit message body, i.e. anything after the first line of text in the
@@ -42,22 +80,19 @@ interface ICommitSummaryState {
    * commit object passed through props, see the createState method for more
    * details.
    */
-  readonly body: string
+  readonly body: ReadonlyArray<TokenResult>
 
   /**
    * Whether or not the commit body text overflows its container. Used in
    * conjunction with the isExpanded prop.
    */
   readonly isOverflowed: boolean
-}
 
-const maxSummaryLength = 72
-
-/**
- * Removes whitespace characters from the end of the string
- */
-function trimTrailingWhitespace(value: string) {
-  return value.replace(/\s+$/, '')
+  /**
+   * The avatars associated with this commit. Used when rendering
+   * the avatar stack and calculated whenever the commit prop changes.
+   */
+  readonly avatarUsers: ReadonlyArray<IAvatarUser>
 }
 
 /**
@@ -72,23 +107,53 @@ function trimTrailingWhitespace(value: string) {
  *
  * @param props        The current commit summary prop object.
  */
-function createState(isOverflowed: boolean, props: ICommitSummaryProps) {
-  let summary = trimTrailingWhitespace(props.commit.summary)
-  let body = trimTrailingWhitespace(props.commit.body)
+function createState(
+  isOverflowed: boolean,
+  props: ICommitSummaryProps
+): ICommitSummaryState {
+  const { emoji, repository, selectedCommits } = props
+  const tokenizer = new Tokenizer(emoji, repository)
 
-  if (summary.length > maxSummaryLength) {
-    // Truncate at least 3 characters off the end to avoid just an ellipsis
-    // followed by 1-2 characters in the body. This matches dotcom behavior.
-    const truncationMargin = 3
-    const truncateLength = maxSummaryLength - truncationMargin
-    const remainder = summary.substr(truncateLength)
+  const { summary, body } = wrapRichTextCommitMessage(
+    getCommitSummary(selectedCommits),
+    selectedCommits[0].body,
+    tokenizer
+  )
 
-    // Don't join the the body with newlines if it's empty
-    body = body.length > 0 ? `…${remainder}\n\n${body}` : `…${remainder}`
-    summary = `${summary.substr(0, truncateLength)}…`
+  const hasEmptySummary =
+    selectedCommits.length === 1 && selectedCommits[0].summary.length === 0
+
+  const allAvatarUsers = selectedCommits.flatMap(c =>
+    getAvatarUsersForCommit(repository.gitHubRepository, c)
+  )
+
+  const avatarUsers = _.uniqWith(
+    allAvatarUsers,
+    (a, b) => a.email === b.email && a.name === b.name
+  )
+
+  return { isOverflowed, summary, body, avatarUsers, hasEmptySummary }
+}
+
+function getCommitSummary(selectedCommits: ReadonlyArray<Commit>) {
+  return selectedCommits[0].summary.length === 0
+    ? 'Empty commit message'
+    : selectedCommits[0].summary
+}
+
+function getCountCommitsNotInDiff(
+  selectedCommits: ReadonlyArray<Commit>,
+  shasInDiff: ReadonlyArray<string>
+) {
+  if (selectedCommits.length === 1) {
+    return 0
   }
 
-  return { isOverflowed, summary, body }
+  const excludedCommits = selectedCommits.filter(
+    ({ sha }) => !shasInDiff.includes(sha)
+  )
+
+  return excludedCommits.length
 }
 
 /**
@@ -103,9 +168,10 @@ export class CommitSummary extends React.Component<
   ICommitSummaryProps,
   ICommitSummaryState
 > {
-  private descriptionScrollViewRef: HTMLDivElement | null
+  private descriptionScrollViewRef: HTMLDivElement | null = null
   private readonly resizeObserver: ResizeObserver | null = null
-  private updateOverflowTimeoutId: number | null = null
+  private updateOverflowTimeoutId: NodeJS.Immediate | null = null
+  private descriptionRef: HTMLDivElement | null = null
 
   public constructor(props: ICommitSummaryProps) {
     super(props)
@@ -134,6 +200,12 @@ export class CommitSummary extends React.Component<
   }
 
   private onResized = () => {
+    if (this.descriptionRef) {
+      const descriptionBottom =
+        this.descriptionRef.getBoundingClientRect().bottom
+      this.props.onDescriptionBottomChanged(descriptionBottom)
+    }
+
     if (this.props.isExpanded) {
       return
     }
@@ -155,6 +227,10 @@ export class CommitSummary extends React.Component<
     }
   }
 
+  private onDescriptionRef = (ref: HTMLDivElement | null) => {
+    this.descriptionRef = ref
+  }
+
   private renderExpander() {
     if (
       !this.state.body.length ||
@@ -165,9 +241,10 @@ export class CommitSummary extends React.Component<
 
     const expanded = this.props.isExpanded
     const onClick = expanded ? this.onCollapse : this.onExpand
-    const icon = expanded ? OcticonSymbol.unfold : OcticonSymbol.fold
+    const icon = expanded ? OcticonSymbol.fold : OcticonSymbol.unfold
 
     return (
+      // eslint-disable-next-line jsx-a11y/anchor-is-valid, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
       <a onClick={onClick} className="expander">
         <Octicon symbol={icon} />
         {expanded ? 'Collapse' : 'Expand'}
@@ -208,7 +285,12 @@ export class CommitSummary extends React.Component<
   }
 
   public componentWillUpdate(nextProps: ICommitSummaryProps) {
-    if (!messageEquals(nextProps.commit, this.props.commit)) {
+    if (
+      nextProps.selectedCommits.length !== this.props.selectedCommits.length ||
+      !nextProps.selectedCommits.every((nextCommit, i) =>
+        messageEquals(nextCommit, this.props.selectedCommits[i])
+      )
+    ) {
       this.setState(createState(false, nextProps))
     }
   }
@@ -233,12 +315,15 @@ export class CommitSummary extends React.Component<
   }
 
   private renderDescription() {
-    if (!this.state.body) {
+    if (this.state.body.length === 0) {
       return null
     }
 
     return (
-      <div className="commit-summary-description-container">
+      <div
+        className="commit-summary-description-container"
+        ref={this.onDescriptionRef}
+      >
         <div
           className="commit-summary-description-scroll-view"
           ref={this.onDescriptionScrollViewRef}
@@ -256,70 +341,308 @@ export class CommitSummary extends React.Component<
     )
   }
 
-  public render() {
-    const fileCount = this.props.files.length
-    const filesPlural = fileCount === 1 ? 'file' : 'files'
-    const filesDescription = `${fileCount} changed ${filesPlural}`
-    const shortSHA = this.props.commit.sha.slice(0, 7)
-    const author = this.props.commit.author
-    const authorTitle = `${author.name} <${author.email}>`
-    let avatarUser = undefined
-    if (this.props.gitHubUser) {
-      avatarUser = {
-        email: author.email,
-        name: author.name,
-        avatarURL: this.props.gitHubUser.avatarURL,
-      }
+  private onHighlightShasInDiff = () => {
+    this.props.onHighlightShas(this.props.shasInDiff)
+  }
+
+  private onHighlightShasNotInDiff = () => {
+    const { onHighlightShas, selectedCommits, shasInDiff } = this.props
+    onHighlightShas(
+      selectedCommits.filter(c => !shasInDiff.includes(c.sha)).map(c => c.sha)
+    )
+  }
+
+  private onRemoveHighlightOfShas = () => {
+    this.props.onHighlightShas([])
+  }
+
+  private showUnreachableCommits = () => {
+    this.props.showUnreachableCommits(UnreachableCommitsTab.Unreachable)
+  }
+
+  private showReachableCommits = () => {
+    this.props.showUnreachableCommits(UnreachableCommitsTab.Reachable)
+  }
+
+  private renderCommitsNotReachable = () => {
+    const { selectedCommits, shasInDiff } = this.props
+    if (selectedCommits.length === 1) {
+      return
     }
 
+    const excludedCommitsCount = getCountCommitsNotInDiff(
+      selectedCommits,
+      shasInDiff
+    )
+
+    if (excludedCommitsCount === 0) {
+      return
+    }
+
+    const commitsPluralized = excludedCommitsCount > 1 ? 'commits' : 'commit'
+
+    return (
+      // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
+      <div
+        className="commit-unreachable-info"
+        onMouseOver={this.onHighlightShasNotInDiff}
+        onMouseOut={this.onRemoveHighlightOfShas}
+      >
+        <Octicon symbol={OcticonSymbol.info} />
+        <LinkButton onClick={this.showUnreachableCommits}>
+          {excludedCommitsCount} unreachable {commitsPluralized}
+        </LinkButton>{' '}
+        not included.
+      </div>
+    )
+  }
+
+  private renderAuthors = () => {
+    const { selectedCommits, repository } = this.props
+    const { avatarUsers } = this.state
+    if (selectedCommits.length > 1) {
+      return
+    }
+
+    return (
+      <li
+        className="commit-summary-meta-item without-truncation"
+        aria-label="Author"
+      >
+        <AvatarStack users={avatarUsers} />
+        <CommitAttribution
+          gitHubRepository={repository.gitHubRepository}
+          commits={selectedCommits}
+        />
+      </li>
+    )
+  }
+
+  private renderCommitRef = () => {
+    const { selectedCommits } = this.props
+    if (selectedCommits.length > 1) {
+      return
+    }
+
+    return (
+      <li
+        className="commit-summary-meta-item without-truncation"
+        aria-label="SHA"
+      >
+        <Octicon symbol={OcticonSymbol.gitCommit} />
+        <TooltippedCommitSHA className="sha" commit={selectedCommits[0]} />
+      </li>
+    )
+  }
+
+  private renderSummary = () => {
+    const { selectedCommits, shasInDiff } = this.props
+    const { summary, hasEmptySummary } = this.state
+    const summaryClassNames = classNames('commit-summary-title', {
+      'empty-summary': hasEmptySummary,
+    })
+
+    if (selectedCommits.length === 1) {
+      return (
+        <RichText
+          className={summaryClassNames}
+          emoji={this.props.emoji}
+          repository={this.props.repository}
+          text={summary}
+        />
+      )
+    }
+
+    const commitsNotInDiff = getCountCommitsNotInDiff(
+      selectedCommits,
+      shasInDiff
+    )
+    const numInDiff = selectedCommits.length - commitsNotInDiff
+    const commitsPluralized = numInDiff > 1 ? 'commits' : 'commit'
+    return (
+      <div className={summaryClassNames}>
+        Showing changes from{' '}
+        {commitsNotInDiff > 0 ? (
+          <LinkButton
+            onMouseOver={this.onHighlightShasInDiff}
+            onMouseOut={this.onRemoveHighlightOfShas}
+            onClick={this.showReachableCommits}
+          >
+            {numInDiff} {commitsPluralized}
+          </LinkButton>
+        ) : (
+          <>
+            {' '}
+            {numInDiff} {commitsPluralized}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  public render() {
     const className = classNames({
       expanded: this.props.isExpanded,
       collapsed: !this.props.isExpanded,
       'has-expander': this.props.isExpanded || this.state.isOverflowed,
+      'hide-description-border': this.props.hideDescriptionBorder,
     })
 
     return (
       <div id="commit-summary" className={className}>
         <div className="commit-summary-header">
-          <RichText
-            className="commit-summary-title"
-            emoji={this.props.emoji}
-            repository={this.props.repository}
-            text={this.state.summary}
-          />
-
+          {this.renderSummary()}
           <ul className="commit-summary-meta">
+            {this.renderAuthors()}
+            {this.renderCommitRef()}
+            {this.renderChangedFilesDescription()}
+            {this.renderLinesChanged()}
+            {this.renderTags()}
+
             <li
-              className="commit-summary-meta-item"
-              title={authorTitle}
-              aria-label="Author"
+              className="commit-summary-meta-item without-truncation"
+              title="Diff Options"
             >
-              <span aria-hidden="true">
-                <Avatar user={avatarUser} />
-              </span>
-
-              {author.name}
-            </li>
-
-            <li className="commit-summary-meta-item" aria-label="SHA">
-              <span aria-hidden="true">
-                <Octicon symbol={OcticonSymbol.gitCommit} />
-              </span>
-              <span className="sha">{shortSHA}</span>
-            </li>
-
-            <li className="commit-summary-meta-item" title={filesDescription}>
-              <span aria-hidden="true">
-                <Octicon symbol={OcticonSymbol.diff} />
-              </span>
-
-              {filesDescription}
+              <DiffOptions
+                isInteractiveDiff={false}
+                hideWhitespaceChanges={this.props.hideWhitespaceInDiff}
+                onHideWhitespaceChangesChanged={
+                  this.props.onHideWhitespaceInDiffChanged
+                }
+                showSideBySideDiff={this.props.showSideBySideDiff}
+                onShowSideBySideDiffChanged={
+                  this.props.onShowSideBySideDiffChanged
+                }
+                onDiffOptionsOpened={this.props.onDiffOptionsOpened}
+              />
             </li>
           </ul>
         </div>
 
         {this.renderDescription()}
+        {this.renderCommitsNotReachable()}
       </div>
+    )
+  }
+
+  private renderChangedFilesDescription = () => {
+    const fileCount = this.props.changesetData.files.length
+    const filesPlural = fileCount === 1 ? 'file' : 'files'
+    const filesShortDescription = `${fileCount} changed ${filesPlural}`
+
+    let filesAdded = 0
+    let filesModified = 0
+    let filesRemoved = 0
+    for (const file of this.props.changesetData.files) {
+      switch (file.status.kind) {
+        case AppFileStatusKind.New:
+          filesAdded += 1
+          break
+        case AppFileStatusKind.Modified:
+          filesModified += 1
+          break
+        case AppFileStatusKind.Deleted:
+          filesRemoved += 1
+          break
+      }
+    }
+
+    const filesLongDescription = (
+      <>
+        {filesAdded > 0 ? (
+          <span>
+            <Octicon
+              className="files-added-icon"
+              symbol={OcticonSymbol.diffAdded}
+            />
+            {filesAdded} added
+          </span>
+        ) : null}
+        {filesModified > 0 ? (
+          <span>
+            <Octicon
+              className="files-modified-icon"
+              symbol={OcticonSymbol.diffModified}
+            />
+            {filesModified} modified
+          </span>
+        ) : null}
+        {filesRemoved > 0 ? (
+          <span>
+            <Octicon
+              className="files-deleted-icon"
+              symbol={OcticonSymbol.diffRemoved}
+            />
+            {filesRemoved} deleted
+          </span>
+        ) : null}
+      </>
+    )
+
+    return (
+      <TooltippedContent
+        className="commit-summary-meta-item without-truncation"
+        tooltipClassName="changed-files-description-tooltip"
+        tooltip={fileCount > 0 ? filesLongDescription : undefined}
+      >
+        <Octicon symbol={OcticonSymbol.diff} />
+        {filesShortDescription}
+      </TooltippedContent>
+    )
+  }
+
+  private renderLinesChanged() {
+    const linesAdded = this.props.changesetData.linesAdded
+    const linesDeleted = this.props.changesetData.linesDeleted
+    if (linesAdded + linesDeleted === 0) {
+      return null
+    }
+
+    const linesAddedPlural = linesAdded === 1 ? 'line' : 'lines'
+    const linesDeletedPlural = linesDeleted === 1 ? 'line' : 'lines'
+    const linesAddedTitle = `${linesAdded} ${linesAddedPlural} added`
+    const linesDeletedTitle = `${linesDeleted} ${linesDeletedPlural} deleted`
+
+    return (
+      <>
+        <TooltippedContent
+          tagName="li"
+          className="commit-summary-meta-item without-truncation lines-added"
+          tooltip={linesAddedTitle}
+        >
+          +{linesAdded}
+        </TooltippedContent>
+        <TooltippedContent
+          tagName="li"
+          className="commit-summary-meta-item without-truncation lines-deleted"
+          tooltip={linesDeletedTitle}
+        >
+          -{linesDeleted}
+        </TooltippedContent>
+      </>
+    )
+  }
+
+  private renderTags() {
+    const { selectedCommits } = this.props
+    if (selectedCommits.length > 1) {
+      return
+    }
+
+    const tags = selectedCommits[0].tags
+
+    if (tags.length === 0) {
+      return
+    }
+
+    return (
+      <li className="commit-summary-meta-item" title={tags.join('\n')}>
+        <span aria-label="Tags">
+          <Octicon symbol={OcticonSymbol.tag} />
+        </span>
+
+        <span className="tags">{tags.join(', ')}</span>
+      </li>
     )
   }
 }

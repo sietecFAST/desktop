@@ -1,2 +1,2 @@
-export { HistorySidebar } from './sidebar'
-export { History } from './history'
+export { SelectedCommits } from './selected-commits'
+export { CompareSidebar } from './compare'

@@ -1,5 +1,6 @@
 import * as React from 'react'
-import * as classNames from 'classnames'
+import classNames from 'classnames'
+import { showContextualMenu } from '../../lib/menu-item'
 
 interface ITextAreaProps {
   /** The label for the textarea field. */
@@ -58,6 +59,10 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
       this.props.onValueChanged(event.currentTarget.value)
     }
   }
+  private onContextMenu = (event: React.MouseEvent<any>) => {
+    event.preventDefault()
+    showContextualMenu([{ role: 'editMenu' }])
+  }
 
   public render() {
     const className = classNames(
@@ -69,6 +74,7 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
         {this.props.label}
 
         <textarea
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus={this.props.autoFocus}
           className={this.props.textareaClassName}
           disabled={this.props.disabled}
@@ -78,6 +84,7 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
           onChange={this.onChange}
           onKeyDown={this.props.onKeyDown}
           ref={this.props.onTextAreaRef}
+          onContextMenu={this.onContextMenu}
         />
       </label>
     )

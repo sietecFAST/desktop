@@ -6,17 +6,17 @@ We introduced syntax highlighted diffs in [#3101](https://github.com/desktop/des
 
 ## Supported languages
 
-We currently support syntax highlighting for the following languages.
+We currently support syntax highlighting for the following languages and file types.
 
-JavaScript, JSON, TypeScript, Coffeescript, HTML, CSS, SCSS, LESS, VUE, Markdown, Yaml, XML, Objective-C, Scala, C#, Java, C, C++, Kotlin, Ocaml, F#, sh/bash, Swift, SQL, CYPHER, Go, Perl, PHP, Python, Ruby, Clojure, Rust
+JavaScript, JSON, TypeScript, Coffeescript, HTML, Asp, JavaServer Pages, CSS, SCSS, LESS, VUE, Markdown, Yaml, XML, Diff, Objective-C, Scala, C#, Java, C, C++, Kotlin, Ocaml, F#, Swift, sh/bash, SQL, CYPHER, Go, Perl, PHP, Python, Ruby, Clojure, Rust, Elixir, Haxe, R, PowerShell, Visual Basic, Fortran, Lua, Crystal, Julia, sTex, SPARQL, Stylus, Soy, Smalltalk, Slim, HAML, Sieve, Scheme, ReStructuredText, RPM, Q, Puppet, Pug, Protobuf, Properties, Apache Pig, ASCII Armor (PGP), Oz, Pascal, Toml, Dart and Docker.
 
 This list was never meant to be exhaustive, we expect to add more languages going forward but this seemed like a good first step.
 
-Note, however that this list is likely to grow stale so I'd recommend checking [the code](https://github.com/desktop/desktop/blob/master/app/src/highlighter/index.ts) directly.
+Note, however that this list is likely to grow stale so I'd recommend checking [the code](https://github.com/desktop/desktop/blob/development/app/src/highlighter/index.ts) directly.
 
 ### I want to add my favorite language
 
-Cool! As long as it's a language that [CodeMirror supports out of the box](https://codemirror.net/mode/index.html) we should be able to make it work. Open an issue and we'll take it from there.
+Cool! As long as it's a language that [CodeMirror supports out of the box](https://codemirror.net/mode/index.html) or it has a module that extends CodeMirror ([`codemirror-mode-elixir`](https://github.com/optick/codemirror-mode-elixir) is an example of this) we should be able to make it work. Open an issue and we'll take it from there.
 
 If you want to create a PR and add highlighter support for your favourite programming language don't forget to:
 1. Submit a PR with a sample file for the language to [desktop/highlighter-tests](https://github.com/desktop/highlighter-tests).

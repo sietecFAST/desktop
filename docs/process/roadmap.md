@@ -1,63 +1,98 @@
 # Roadmap
 
-The following are our marketing releases as planned to date. They contain the broad features we're considering. The further away a release is, the less defined it is. Releases are subject to change at any time.
+The following are the larger areas of upcoming work the GitHub Desktop team intends to explore and has recently shipped. This is not inclusive of everything we're working on (see existing open pull requests for that), and it's not written in stone. We'll attempt to update this intermittently as priorities evolve, but can't guarantee that it stays up to date over time.
 
-## 1.1
+## Major features shipped in previous releases
 
-- Relationship to _X_
-  - Show how the current branch relates to the target branch
-  - The target is the default branch or the upstream's default branch
-  - _Probably_ let the user switch the target branch
+#### High signal notifications (2.9.10 and 3.0.0)
 
-- Conflict resolution lite
-  - Differentiate conflicted files from other changed files
-  - Let me choose my mergetool
-  - Let me open my mergetool
+- Receive a notification when checks fail: [#13655](https://github.com/desktop/desktop/pull/14175)
+- Receive a notification when your pull request is reviewed: [#14175](https://github.com/desktop/desktop/pull/14175)
 
-- Pull request list
-  - _Probably_ a tab in the Branches foldout
-  - Group my pull requests vs. others
+#### Improved commit history: reorder commits, squash commits, amend commits, and create a branch from previous commit (2.9.0)
 
-- Pull request CI status
-  - Show PRs CI status in the above pull request list
+- Reorder commits via drag/drop: [#12384](https://github.com/desktop/desktop/pull/12384)
+- Squash commits via drag/drop: [#12235](https://github.com/desktop/desktop/pull/12235)
+- Amend last commit: [#12353](https://github.com/desktop/desktop/pull/12353)
+- Create a branch from a previous commit: [#12160](https://github.com/desktop/desktop/pull/12160)
 
-- Auto-config upstreams on fork
-  - Create an `upstream` remote for forks
-  - Fetch periodically
+#### Native support for Apple silicon machines (2.8.2)
 
-## 1.2
+- Provide support for Apple silicon machines: [#9691](https://github.com/desktop/desktop/pull/9691)
 
-- Full conflict resolution
-  - Lots TBD
-  - Pick ours/theirs/both
-  - Edit inline
-  - Abort merge
-  - How did I get here?
+#### Expanding diffs (2.8.0)
 
-- Fork if needed
-  - Offer to fork on clone, or push, or ?
+- Allow users to expand diffs to get more context outside of the specific hunk where the change is: [#7014](https://github.com/desktop/desktop/issues/7014)
 
-- Protected branches and default branch protection
-  - Don't let me commit to branches I shouldn't commit to
-  - Guide me to creating my own branches
+#### Cherry-picking commits from one branch to another (2.7.1)
 
-- CI status notifications lite
-  - Only on my PRs
-  - Use OS notifications
-  - Notifications link to the PR on dotcom
+- Cherry-pick commits with a context menu and interactively: [#1685](https://github.com/desktop/desktop/issues/1685)
 
-## 1.3
+#### Commits are not always attributed to someone's GitHub user (2.6.4)
 
-- Keep environment up-to-date
-  - Do I need to run `npm install`? `bundle install`?
-  - Is it pluggable?
+- Warn and provide a way to ensure your commits will be attributed to you: [#610](https://github.com/desktop/desktop/issues/610)
 
-- Linting
-  - TBD
+#### Split diffs (2.6)
 
-- Save face
-  - Keep me from making embarrassing mistakes
-  - Don't let me commit a file with conflict markers
+- Give people the ability to use split diffs in Desktop in addition to unified diffs: [#10617](https://github.com/desktop/desktop/issues/10617)
 
-- Repository list info
-  - Does a repository need my attention?
+#### Add and view Tags in Desktop (2.5)
+
+- Allow people to add tags to commits and view tags in history: [#4829](https://github.com/desktop/desktop/issues/4829)
+
+#### Users behind corporate proxies cannot clone repositories in Desktop without manual setup (2.4)
+
+- Help people get set up correctly if they're behind a proxy: [#2789](https://github.com/desktop/desktop/issues/2789)
+
+#### Creating a fork using GitHub Desktop (2.3)
+
+- Helps provide a pathway to create a fork when people are trying to contribute to a repository they don't have write access to: [#8548](https://github.com/desktop/desktop/issues/8548)
+
+#### Branch protection on your desktop (2.2.4)
+
+- Help prevent people from making commits to branches they aren't able to push to: [#7023](https://github.com/desktop/desktop/issues/7023)
+
+#### New user tutorial to get started more easily doing a full workflow in GitHub Desktop (2.2)
+
+- Tutorial entry point: [#8148](https://github.com/desktop/desktop/issues/8148)
+- GitHub workflow tutorial using GitHub Desktop: [#8149](https://github.com/desktop/desktop/issues/8149)
+
+#### Branch list grows with merged & deleted branches making it difficult to find those you care about (2.1)
+
+- Prune branches after they've been deleted: [#750](https://github.com/desktop/desktop/issues/750)
+
+#### Working with uncommitted changes, aka stashing (2.0)
+
+- Improve workflows when you have uncommitted changes: [#6107](https://github.com/desktop/desktop/issues/6107)
+
+#### Support rebase when pulling (2.0)
+
+- Respect user's git config for pull --rebase and resolve conflicts: [#3422](https://github.com/desktop/desktop/issues/3422)
+
+#### Support full rebase story, including rebasing one branch onto another locally (2.0)
+
+- Improve rebase workflows: [#5953](https://github.com/desktop/desktop/issues/5953)
+
+#### Repositories are difficult to find, navigate, and differentiate (2.0)
+
+- Help people navigate between and visually differentiate between repos: [#6460](https://github.com/desktop/desktop/issues/6460)
+
+#### Onboarding (1.6)
+  
+- Improve onboarding for new users: [#5686](https://github.com/desktop/desktop/issues/5686)
+
+#### Suggested next steps (1.6)
+
+- Suggest logical next steps based on what state a person's repository is in: [#6445](https://github.com/desktop/desktop/pull/6445)
+
+#### Merge conflicts iteration (1.6)
+
+- Iterate on initial merge conflicts ship: [#6213](https://github.com/desktop/desktop/issues/6213)
+  
+#### Merge conflicts handling (1.5)
+
+- Improve how Desktop handles merge conflicts: [#5400](https://github.com/desktop/desktop/issues/5400)
+  
+#### Merge workflow iteration (1.5)
+
+- Evaluate and improve merge flow end-to-end: [#5555](https://github.com/desktop/desktop/issues/5555)
